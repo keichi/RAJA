@@ -102,84 +102,12 @@ struct TileWrapper : public GenericWrapper<Data, Types, EnclosedStmts...> {
   }
 };
 
+template <typename Iterable>
+class IterableTilerIterator;
 
 template <typename Iterable>
 struct IterableTiler {
   using value_type = camp::decay<Iterable>;
-
-  struct iterate
-  {
-    value_type s;
-    Index_type i;
-  };
-
-  class iterator
-  {
-    // NOTE: this must be held by value for NVCC support, *even on the host*
-    const IterableTiler itiler;
-    const Index_type block_id;
-
-  public:
-    using value_type = iterate;
-    using difference_type = camp::idx_t;
-    using pointer = value_type *;
-    using reference = value_type &;
-    using iterator_category = std::random_access_iterator_tag;
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE
-    constexpr iterator(IterableTiler const &itiler_, Index_type block_id_)
-        : itiler{itiler_}, block_id{block_id_}
-    {
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE
-    value_type operator*()
-    {
-      auto start = block_id * itiler.block_size;
-      return iterate{itiler.it.slice(start, itiler.block_size), block_id};
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE difference_type operator-(const iterator &rhs) const
-    {
-      return static_cast<difference_type>(block_id) -
-             static_cast<difference_type>(rhs.block_id);
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE iterator operator-(const difference_type &rhs) const
-    {
-      return iterator(itiler, block_id - rhs);
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE iterator operator+(const difference_type &rhs) const
-    {
-      return iterator(itiler,
-                      block_id + rhs >= itiler.num_blocks ? itiler.num_blocks
-                                                          : block_id + rhs);
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE value_type operator[](difference_type rhs) const
-    {
-      return *((*this) + rhs);
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE bool operator!=(const IterableTiler &rhs) const
-    {
-      return block_id != rhs.block_id;
-    }
-
-    RAJA_HOST_DEVICE
-    RAJA_INLINE bool operator<(const IterableTiler &rhs) const
-    {
-      return block_id < rhs.block_id;
-    }
-  };
 
   RAJA_HOST_DEVICE
   RAJA_INLINE
@@ -199,16 +127,90 @@ struct IterableTiler {
 
   RAJA_HOST_DEVICE
   RAJA_INLINE
-  iterator begin() const { return iterator(*this, 0); }
+  IterableTilerIterator<Iterable> begin() const { return IterableTilerIterator(*this, 0); }
 
   RAJA_HOST_DEVICE
   RAJA_INLINE
-  iterator end() const { return iterator(*this, num_blocks); }
+  IterableTilerIterator<Iterable> end() const { return IterableTilerIterator(*this, num_blocks); }
 
   value_type it;
   camp::idx_t block_size;
   camp::idx_t num_blocks;
   camp::idx_t dist;
+};
+
+template <typename Iterable>
+class IterableTilerIterator {
+  // NOTE: this must be held by value for NVCC support, *even on the host*
+  const IterableTiler<Iterable> itiler;
+  const Index_type block_id;
+
+struct iterate
+{
+  camp::decay<Iterable> s;
+  Index_type i;
+};
+
+public:
+  using value_type = iterate;
+  using difference_type = camp::idx_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+  using iterator_category = std::random_access_iterator_tag;
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE
+  IterableTilerIterator(IterableTiler<Iterable> const &itiler_, Index_type block_id_)
+      : itiler{itiler_}, block_id{block_id_}
+  {
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE
+  value_type operator*()
+  {
+    auto start = block_id * itiler.block_size;
+    return iterate{itiler.it.slice(start, itiler.block_size), block_id};
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE difference_type operator-(const IterableTilerIterator &rhs) const
+  {
+    return static_cast<difference_type>(block_id) -
+           static_cast<difference_type>(rhs.block_id);
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE IterableTilerIterator operator-(const difference_type &rhs) const
+  {
+    return IterableTilerIterator(itiler, block_id - rhs);
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE IterableTilerIterator operator+(const difference_type &rhs) const
+  {
+    return iterator(itiler,
+                    block_id + rhs >= itiler.num_blocks ? itiler.num_blocks
+                                                        : block_id + rhs);
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE value_type operator[](difference_type rhs) const
+  {
+    return *((*this) + rhs);
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE bool operator!=(const IterableTiler<Iterable> &rhs) const
+  {
+    return block_id != rhs.block_id;
+  }
+
+  RAJA_HOST_DEVICE
+  RAJA_INLINE bool operator<(const IterableTiler<Iterable> &rhs) const
+  {
+    return block_id < rhs.block_id;
+  }
 };
 
 /*!

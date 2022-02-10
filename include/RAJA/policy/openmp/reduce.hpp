@@ -56,7 +56,7 @@ public:
   ~ReduceOMP()
   {
     if (Base::parent) {
-#pragma omp critical(ompReduceCritical)
+#pragma omp critical
       Reduce()(Base::parent->local(), Base::my_data);
       Base::my_data = Base::identity;
     }

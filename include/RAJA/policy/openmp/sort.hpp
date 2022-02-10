@@ -165,7 +165,7 @@ void sort(Sorter sorter,
 
     const diff_type requested_num_threads = std::min((n+iterates_per_task-1)/iterates_per_task, max_threads);
 
-#pragma omp parallel num_threads(static_cast<int>(requested_num_threads))
+#pragma omp parallel num_threads(requested_num_threads)
 #pragma omp master
     {
       sort_task(sorter, begin, 0, n, iterates_per_task, comp);
@@ -175,7 +175,7 @@ void sort(Sorter sorter,
 
     const diff_type requested_num_threads = std::min((n+min_iterates_per_task-1)/min_iterates_per_task, max_threads);
 
-#pragma omp parallel num_threads(static_cast<int>(requested_num_threads))
+#pragma omp parallel num_threads(requested_num_threads)
     {
       sort_parallel_region(sorter, begin, n, comp);
     }
